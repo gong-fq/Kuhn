@@ -1,0 +1,29 @@
+{
+  "name": "scientific-paradigm-shifts",
+  "version": "1.0.0",
+  "description": "交互式科学范式转变教育网站",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo '无需构建步骤'",
+    "dev": "netlify dev",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "科学哲学",
+    "托马斯·库恩",
+    "范式转变",
+    "AI",
+    "教育"
+  ],
+  "author": "龚凤乾教授团队",
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^2.6.9"
+  },
+  "devDependencies": {
+    "@netlify/functions": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
