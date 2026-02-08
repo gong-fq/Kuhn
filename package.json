@@ -1,29 +1,32 @@
 {
   "name": "scientific-paradigm-shifts",
   "version": "1.0.0",
-  "description": "交互式科学范式转变教育网站",
+  "description": "An interactive website exploring scientific paradigm shifts from Aristotle to AI era",
   "main": "index.html",
   "scripts": {
-    "build": "echo '无需构建步骤'",
-    "dev": "netlify dev",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "echo 'No build required for static site'",
+    "dev": "echo 'Open index.html directly in browser'",
+    "test": "echo 'No tests specified'"
   },
   "keywords": [
-    "科学哲学",
-    "托马斯·库恩",
-    "范式转变",
-    "AI",
-    "教育"
+    "scientific-revolutions",
+    "thomas-kuhn",
+    "paradigm-shifts",
+    "ai-epistemology",
+    "education",
+    "philosophy-of-science"
   ],
-  "author": "龚凤乾教授团队",
+  "author": "Prof. Gong Fengqian, Tianjin University of Finance and Economics",
   "license": "MIT",
   "dependencies": {
     "node-fetch": "^2.6.9"
   },
-  "devDependencies": {
-    "@netlify/functions": "^1.0.0"
-  },
+  "devDependencies": {},
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/scientific-paradigm-shifts.git"
   }
 }

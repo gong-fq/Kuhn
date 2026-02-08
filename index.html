@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <title>科学范式转变与 AI 时代的认识论革命</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <style>
-    /* 完全保留并优化原设计样式 */
+    /* 基础样式 */
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
       margin: 0; 
@@ -120,6 +120,10 @@
       flex-direction: column; 
       overflow: hidden; 
       z-index: 1000;
+      display: none;
+    }
+    #ai-panel.active {
+      display: flex;
     }
     .ai-header { 
       background: #1e3c72; 
@@ -141,6 +145,7 @@
       padding: 8px 12px; 
       border-radius: 10px; 
       max-width: 85%; 
+      word-break: break-word;
     }
     .msg.user { 
       background: #2a5298; 
@@ -161,9 +166,21 @@
     .ai-footer input { 
       flex: 1; 
       border: 1px solid #ddd; 
-      padding: 8px; 
-      border-radius: 5px; 
+      padding: 8px 12px; 
+      border-radius: 20px; 
       outline: none; 
+      font-size: 0.9rem;
+    }
+    .ai-footer button {
+      background: #2a5298; 
+      color: white; 
+      border: none; 
+      padding: 8px 16px; 
+      border-radius: 20px; 
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     /* 思考动画 */
@@ -185,31 +202,55 @@
       animation-delay: 0.4s; 
     }
     @keyframes bounce { 
-      0%, 80%, 100% { 
-        transform: scale(0); 
-      } 
-      40% { 
-        transform: scale(1); 
-      } 
+      0%, 80%, 100% { transform: scale(0); } 
+      40% { transform: scale(1); } 
     }
     @keyframes pulse { 
-      0% { 
-        opacity: 1; 
-      } 
-      50% { 
-        opacity: 0.4; 
-      } 
-      100% { 
-        opacity: 1; 
-      } 
+      0% { opacity: 1; } 
+      50% { opacity: 0.4; } 
+      100% { opacity: 1; } 
     }
 
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+      main {
+        padding: 1rem;
+      }
+      section {
+        padding: 1.2rem;
+      }
+      #ai-panel {
+        width: calc(100vw - 40px);
+        right: 20px;
+        left: 20px;
+        height: 60vh;
+      }
+      #ai-btn {
+        right: 20px;
+        bottom: 20px;
+      }
+    }
+    
     /* 列表样式 */
     ul {
       padding-left: 1.2rem;
+      margin: 0.5rem 0;
     }
     li {
       margin-bottom: 0.5rem;
+      line-height: 1.6;
+    }
+    
+    /* 滚动条样式 */
+    .ai-body::-webkit-scrollbar {
+      width: 6px;
+    }
+    .ai-body::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    .ai-body::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 3px;
     }
   </style>
 </head>
@@ -217,7 +258,7 @@
 
 <div id="app">
   <header>
-    <button class="lang-toggle" @click="lang = lang === 'zh' ? 'en' : 'zh'">
+    <button class="lang-toggle" @click="toggleLanguage">
       {{ lang === 'zh' ? 'English' : '中文' }}
     </button>
     <h1>{{ t.headerTitle }}</h1>
@@ -226,48 +267,53 @@
   </header>
 
   <main>
-    <!-- 所有科学范式转变章节 -->
-    <section v-for="(s, idx) in t.sections" :key="idx">
+    <section v-for="(section, idx) in t.sections" :key="idx">
       <h2>
-        {{ s.title }}
+        {{ section.title }}
         <i class="fas fa-volume-up tts-icon" 
            :class="{playing: playingIdx === idx}" 
-           @click="toggleTTS(s.ttsText, idx)"></i>
+           @click="toggleTTS(section.ttsText, idx)"
+           :title="lang === 'zh' ? '朗读' : 'Read aloud'"></i>
       </h2>
       
-      <div v-if="s.time">
+      <div v-if="section.time">
         <h3>{{ t.labelTime }}</h3>
-        <p class="meta">{{ s.time }}</p>
+        <p class="meta">{{ section.time }}</p>
       </div>
-      <div v-if="s.people">
+      
+      <div v-if="section.people">
         <h3>{{ t.labelPeople }}</h3>
-        <p class="meta">{{ s.people }}</p>
+        <p class="meta">{{ section.people }}</p>
       </div>
       
-      <h3 v-if="s.featuresTitle">{{ s.featuresTitle }}</h3>
+      <h3 v-if="section.featuresTitle">{{ section.featuresTitle }}</h3>
       
-      <ul v-if="s.items">
-        <li v-for="(item, itemIdx) in s.items" :key="itemIdx">
+      <ul v-if="section.items">
+        <li v-for="(item, itemIdx) in section.items" :key="itemIdx">
           {{ item.name }}
-          <a :href="item.link" target="_blank" class="info-link">[Info]</a>
+          <a :href="item.link" target="_blank" class="info-link" 
+             :title="lang === 'zh' ? '了解更多' : 'Learn more'">
+            [Info]
+          </a>
         </li>
       </ul>
       
-      <p v-if="s.description">{{ s.description }}</p>
+      <p v-if="section.description">{{ section.description }}</p>
       
-      <div v-if="s.highlight" class="highlight" v-html="s.highlight"></div>
+      <div v-if="section.highlight" class="highlight" v-html="section.highlight"></div>
     </section>
   </main>
 
   <!-- AI 聊天面板 -->
-  <div id="ai-panel" v-if="chatOpen">
+  <div id="ai-panel" :class="{active: chatOpen}">
     <div class="ai-header">
-      <span>DeepSeek AI Assistant</span>
-      <i class="fas fa-times" @click="chatOpen = false" style="cursor:pointer"></i>
+      <span>{{ lang === 'zh' ? 'DeepSeek AI 助手' : 'DeepSeek AI Assistant' }}</span>
+      <i class="fas fa-times" @click="closeChat" style="cursor:pointer"></i>
     </div>
     <div class="ai-body" ref="chatScroll">
-      <div v-for="(m, msgIdx) in messages" :key="msgIdx" :class="['msg', m.role]">
-        {{ m.content }}
+      <div v-for="(message, msgIdx) in messages" :key="msgIdx" 
+           :class="['msg', message.role]">
+        {{ message.content }}
       </div>
       <div v-if="isThinking" class="msg ai">
         <div class="dot-loader">
@@ -277,17 +323,19 @@
     </div>
     <div class="ai-footer">
       <input v-model="userInput" 
-             @keyup.enter="sendToAI" 
-             :placeholder="lang === 'zh' ? '提问...' : 'Ask...'">
-      <button @click="sendToAI" 
-              style="background:#2a5298; color:white; border:none; padding:5px 12px; border-radius:4px; cursor:pointer">
+             @keyup.enter="sendMessage" 
+             :placeholder="lang === 'zh' ? '输入您的问题...' : 'Type your question...'"
+             :disabled="isThinking">
+      <button @click="sendMessage" :disabled="isThinking || !userInput.trim()">
         <i class="fas fa-paper-plane"></i>
+        <span v-if="lang === 'zh'">发送</span>
+        <span v-else>Send</span>
       </button>
     </div>
   </div>
   
   <!-- AI 按钮 -->
-  <div id="ai-btn" @click="chatOpen = !chatOpen">
+  <div id="ai-btn" @click="toggleChat">
     <i class="fas fa-robot"></i>
   </div>
 </div>
@@ -303,21 +351,19 @@ createApp({
       chatOpen: false,
       userInput: '',
       isThinking: false,
-      messages: [
-        {role: 'ai', content: '你好！我是 AI 助手，我们可以探讨库恩的科学革命理论。'}
-      ],
+      messages: [],
       content: {
         zh: {
           headerTitle: "科学范式转变：从自然哲学到 AI 时代",
-          headerSub: "基于托马斯·库恩《科学革命的结构》，重新理解人类科学发展的断裂点。",
+          headerSub: "基于托马斯·库恩《科学革命的结构》，重新理解人类科学发展的断裂点",
           author: "天津财经大学统计学院教授 龚凤乾",
           labelTime: "时间", 
           labelPeople: "代表人物",
           sections: [
             {
-              title: "什么是" + "科学范式" + "？", // 避免引号嵌套问题
-              description: "在库恩看来，范式（Paradigm）不是某一条理论，而是一个科学共同体所共享的整体框架，包括：什么问题是" + "科学的" + "、应当使用什么方法、什么样的解释是可接受的、什么标准决定成功或失败。",
-              highlight: "科学革命并非知识的线性积累，而是范式之间的" + "断裂式跃迁" + "。",
+              title: "什么是科学范式？",
+              description: "在托马斯·库恩看来，范式（Paradigm）不是某一条具体的理论，而是一个科学共同体所共享的整体框架。这个框架决定了：什么问题是'科学的'、应当使用什么方法进行研究、什么样的解释是可接受的、以及什么标准决定成功或失败。",
+              highlight: "科学革命并非知识的线性积累，而是范式之间的'断裂式跃迁'。",
               ttsText: "什么是科学范式？在库恩看来，范式不是某一条理论，而是一个科学共同体所共享的整体框架。科学革命并非知识的线性积累，而是范式之间的断裂式跃迁。"
             },
             {
@@ -325,20 +371,11 @@ createApp({
               time: "公元前 4 世纪 – 16 世纪",
               featuresTitle: "核心特征",
               items: [
-                { 
-                  name: "定性解释优先", 
-                  link: "https://zh.wikipedia.org/wiki/定性研究" 
-                },
-                { 
-                  name: "目的论（事物" + "为何如此" + "）", 
-                  link: "https://zh.wikipedia.org/wiki/目的论" 
-                },
-                { 
-                  name: "日常经验 + 逻辑推理", 
-                  link: "https://zh.wikipedia.org/wiki/基于经验的论证" 
-                }
+                { name: "定性解释优先", link: "https://zh.wikipedia.org/wiki/定性研究" },
+                { name: "目的论（事物'为何如此'）", link: "https://zh.wikipedia.org/wiki/目的论" },
+                { name: "日常经验 + 逻辑推理", link: "https://zh.wikipedia.org/wiki/亚里士多德" }
               ],
-              highlight: "世界被理解为一个" + "有目的、有意义" + "的整体。",
+              highlight: "世界被理解为一个'有目的、有意义'的有机整体。",
               ttsText: "第一次范式转变，亚里士多德自然哲学。时间从公元前4世纪到16世纪。核心特征是定性解释优先、目的论、日常经验加逻辑推理。"
             },
             {
@@ -346,20 +383,11 @@ createApp({
               people: "哥白尼、伽利略、牛顿",
               featuresTitle: "核心变化",
               items: [
-                { 
-                  name: "数学化自然", 
-                  link: "https://zh.wikipedia.org/wiki/数学化" 
-                },
-                { 
-                  name: "实验 + 精确测量", 
-                  link: "https://zh.wikipedia.org/wiki/科学实验" 
-                },
-                { 
-                  name: "因果—力学解释", 
-                  link: "https://zh.wikipedia.org/wiki/机械论" 
-                }
+                { name: "数学化自然", link: "https://zh.wikipedia.org/wiki/自然哲学的数学原理" },
+                { name: "实验 + 精确测量", link: "https://zh.wikipedia.org/wiki/科学实验" },
+                { name: "因果—力学解释", link: "https://zh.wikipedia.org/wiki/牛顿力学" }
               ],
-              highlight: "自然首次被视为" + "可计算的机器" + "，现代科学正式诞生。",
+              highlight: "自然首次被视为'可计算的机器'，现代科学正式诞生。",
               ttsText: "第二次范式转变，经典科学革命。代表人物有哥白尼、伽利略、牛顿。核心变化是数学化自然、实验加精确测量、因果力学解释。"
             },
             {
@@ -367,20 +395,11 @@ createApp({
               time: "18–19 世纪",
               featuresTitle: "意义",
               items: [
-                { 
-                  name: "实验可重复性成为核心标准", 
-                  link: "https://zh.wikipedia.org/wiki/可重复性" 
-                },
-                { 
-                  name: "分类、结构、机理研究", 
-                  link: "https://zh.wikipedia.org/wiki/化学及生命科学" 
-                },
-                { 
-                  name: "生命现象进入科学解释范围", 
-                  link: "https://zh.wikipedia.org/wiki/生命科学" 
-                }
+                { name: "实验可重复性成为核心标准", link: "https://zh.wikipedia.org/wiki/可重复性" },
+                { name: "分类、结构、机理研究", link: "https://zh.wikipedia.org/wiki/化学革命" },
+                { name: "生命现象进入科学解释范围", link: "https://zh.wikipedia.org/wiki/生命科学史" }
               ],
-              highlight: "科学不再只研究" + "运动" + "，而开始系统研究" + "结构与功能" + "。",
+              highlight: "科学不再只研究'运动'，而开始系统研究'结构与功能'。",
               ttsText: "第三次范式转变，化学与生命科学。时间是18到19世纪。意义包括实验可重复性成为核心标准、分类结构机理研究、生命现象进入科学解释范围。"
             },
             {
@@ -388,20 +407,11 @@ createApp({
               people: "相对论 & 量子力学",
               featuresTitle: "根本冲击",
               items: [
-                { 
-                  name: "确定性被打破", 
-                  link: "https://zh.wikipedia.org/wiki/量子力学" 
-                },
-                { 
-                  name: "观察者进入理论结构", 
-                  link: "https://zh.wikipedia.org/wiki/观测者_(物理学)" 
-                },
-                { 
-                  name: "直觉与数学彻底分离", 
-                  link: "https://zh.wikipedia.org/wiki/现代物理学" 
-                }
+                { name: "确定性被打破", link: "https://zh.wikipedia.org/wiki/量子力学" },
+                { name: "观察者进入理论结构", link: "https://zh.wikipedia.org/wiki/观测者效应" },
+                { name: "直觉与数学彻底分离", link: "https://zh.wikipedia.org/wiki/现代物理学" }
               ],
-              highlight: "人类首次承认：自然并不服从常识。",
+              highlight: "人类首次承认：自然并不服从日常直觉与常识。",
               ttsText: "第四次范式转变，现代物理学。代表是相对论和量子力学。根本冲击包括确定性被打破、观察者进入理论结构、直觉与数学彻底分离。"
             },
             {
@@ -409,61 +419,43 @@ createApp({
               time: "20世纪后期至今",
               featuresTitle: "关键词",
               items: [
-                { 
-                  name: "仿真取代理论推导", 
-                  link: "https://zh.wikipedia.org/wiki/计算机模拟" 
-                },
-                { 
-                  name: "非线性与涌现", 
-                  link: "https://zh.wikipedia.org/wiki/复杂系统" 
-                },
-                { 
-                  name: "跨学科系统方法", 
-                  link: "https://zh.wikipedia.org/wiki/系统科学" 
-                }
+                { name: "仿真取代理论推导", link: "https://zh.wikipedia.org/wiki/计算科学" },
+                { name: "非线性与涌现", link: "https://zh.wikipedia.org/wiki/复杂系统" },
+                { name: "跨学科系统方法", link: "https://zh.wikipedia.org/wiki/系统科学" }
               ],
-              highlight: "计算成为继实验与理论之后的" + "第三种科学方法" + "。",
+              highlight: "计算成为继实验与理论之后的'第三种科学方法'。",
               ttsText: "第五次范式转变，计算与系统科学。时间是20世纪后期至今。关键词包括仿真取代理论推导、非线性与涌现、跨学科系统方法。"
             },
             {
               title: "第六次（进行中）：AI 与数据驱动范式",
               featuresTitle: "根本特征",
               items: [
-                { 
-                  name: "预测优先于解释", 
-                  link: "https://zh.wikipedia.org/wiki/人工智能" 
-                },
-                { 
-                  name: "模型由机器生成", 
-                  link: "https://zh.wikipedia.org/wiki/机器学习" 
-                },
-                { 
-                  name: "假设不再是必需起点", 
-                  link: "https://zh.wikipedia.org/wiki/数据科学" 
-                }
+                { name: "预测优先于解释", link: "https://zh.wikipedia.org/wiki/人工智能" },
+                { name: "模型由机器生成", link: "https://zh.wikipedia.org/wiki/机器学习" },
+                { name: "假设不再是必需起点", link: "https://zh.wikipedia.org/wiki/数据驱动科学" }
               ],
-              highlight: "AI 不只是新工具，而是在重塑" + "什么是科学知识" + "。",
+              highlight: "AI 不只是新工具，而是在重塑'什么是科学知识'的认识论基础。",
               ttsText: "第六次范式转变，人工智能与数据驱动。特征是预测优先于解释、模型由机器生成、假设不再是必需起点。"
             },
             {
               title: "结语：我们正处在范式转换期",
-              description: "按照库恩的标准，AI 引发的并非一次普通技术升级，而是一场方法论—认识论层面的科学革命。它是否会彻底改变" + "理解" + "、" + "解释" + "、" + "真理" + "的含义，将由我们这一代科学共同体共同决定。",
-              highlight: "我们正经历一场深刻的科学认识论变革。",
+              description: "按照库恩的标准，AI 引发的并非一次普通技术升级，而是一场方法论—认识论层面的科学革命。它是否会彻底改变'理解'、'解释'、'真理'的含义，将由我们这一代科学共同体共同决定。",
+              highlight: "我们正经历一场深刻的科学认识论变革，其意义不亚于哥白尼革命。",
               ttsText: "结语，我们正处在范式转换期。按照库恩的标准，AI引发的并非一次普通技术升级，而是一场方法论认识论层面的科学革命。"
             }
           ]
         },
         en: {
           headerTitle: "Scientific Paradigm Shifts",
-          headerSub: "Rethinking Revolutions in Science based on Thomas Kuhn.",
-          author: "Prof. Gong Fengqian, TUFE",
+          headerSub: "Rethinking Scientific Revolutions based on Thomas Kuhn's Theory",
+          author: "Prof. Gong Fengqian, Tianjin University of Finance and Economics",
           labelTime: "Timeline", 
           labelPeople: "Key Figures",
           sections: [
             {
-              title: "What is a " + "Scientific Paradigm" + "?",
-              description: "According to Kuhn, a Paradigm is not a single theory but the overall framework shared by a scientific community.",
-              highlight: "Scientific revolutions are not linear accumulation but " + "discontinuous leaps" + " between paradigms.",
+              title: "What is a Scientific Paradigm?",
+              description: "According to Thomas Kuhn, a Paradigm is not a specific theory but the overall framework shared by a scientific community. This framework determines: what questions are 'scientific', what methods should be used, what explanations are acceptable, and what standards define success or failure.",
+              highlight: "Scientific revolutions are not linear accumulation of knowledge, but 'discontinuous leaps' between paradigms.",
               ttsText: "What is a scientific paradigm? According to Kuhn, a paradigm is not a single theory but the overall framework shared by a scientific community."
             },
             {
@@ -471,212 +463,200 @@ createApp({
               time: "4th Century BC – 16th Century",
               featuresTitle: "Core Characteristics",
               items: [
-                { 
-                  name: "Qualitative Explanation", 
-                  link: "https://en.wikipedia.org/wiki/Qualitative_research" 
-                },
-                { 
-                  name: "Teleology (Purpose)", 
-                  link: "https://en.wikipedia.org/wiki/Teleology" 
-                },
-                { 
-                  name: "Experience + Logical Reasoning", 
-                  link: "https://en.wikipedia.org/wiki/Empirical_evidence" 
-                }
+                { name: "Qualitative Explanation First", link: "https://en.wikipedia.org/wiki/Qualitative_research" },
+                { name: "Teleology (Purpose of Things)", link: "https://en.wikipedia.org/wiki/Teleology" },
+                { name: "Everyday Experience + Logic", link: "https://en.wikipedia.org/wiki/Aristotle" }
               ],
-              highlight: "The world was understood as a " + "purposeful, meaningful whole" + ".",
-              ttsText: "First paradigm shift, Aristotelian natural philosophy. Core characteristics include qualitative explanation, teleology, and experience plus logical reasoning."
+              highlight: "The world was understood as a purposeful, meaningful organic whole.",
+              ttsText: "First paradigm shift, Aristotelian natural philosophy."
             },
             {
               title: "2nd Paradigm: Classical Scientific Revolution",
               people: "Copernicus, Galileo, Newton",
               featuresTitle: "Core Changes",
               items: [
-                { 
-                  name: "Mathematization of Nature", 
-                  link: "https://en.wikipedia.org/wiki/Mathematization_of_nature" 
-                },
-                { 
-                  name: "Experiment + Measurement", 
-                  link: "https://en.wikipedia.org/wiki/Scientific_method" 
-                },
-                { 
-                  name: "Mechanical Explanation", 
-                  link: "https://en.wikipedia.org/wiki/Mechanism_(philosophy)" 
-                }
+                { name: "Mathematization of Nature", link: "https://en.wikipedia.org/wiki/Mathematical_Principles_of_Natural_Philosophy" },
+                { name: "Experiment + Measurement", link: "https://en.wikipedia.org/wiki/Scientific_method" },
+                { name: "Mechanical Explanation", link: "https://en.wikipedia.org/wiki/Newtonian_mechanics" }
               ],
-              highlight: "Nature first viewed as a " + "computable machine" + ".",
-              ttsText: "Second paradigm shift, Classical Scientific Revolution. Key figures: Copernicus, Galileo, Newton. Core changes include mathematization of nature, experiment and measurement, and mechanical explanation."
+              highlight: "Nature was first viewed as a 'computable machine', marking the birth of modern science.",
+              ttsText: "Second paradigm shift, Classical Scientific Revolution."
             },
             {
               title: "3rd Paradigm: Chemistry & Life Sciences",
               time: "18th–19th Century",
               featuresTitle: "Significance",
               items: [
-                { 
-                  name: "Repeatability as Core Standard", 
-                  link: "https://en.wikipedia.org/wiki/Reproducibility" 
-                },
-                { 
-                  name: "Structure & Mechanism", 
-                  link: "https://en.wikipedia.org/wiki/Chemistry_and_life_sciences" 
-                },
-                { 
-                  name: "Life Phenomena Entered Science", 
-                  link: "https://en.wikipedia.org/wiki/Life_sciences" 
-                }
+                { name: "Repeatability as Core Standard", link: "https://en.wikipedia.org/wiki/Reproducibility" },
+                { name: "Classification, Structure, Mechanism", link: "https://en.wikipedia.org/wiki/Chemical_revolution" },
+                { name: "Life Phenomena Enter Science", link: "https://en.wikipedia.org/wiki/History_of_biology" }
               ],
-              highlight: "Science began to study " + "structure and function" + " systematically.",
-              ttsText: "Third paradigm shift, Chemistry and Life Sciences. Significance includes repeatability as core standard, structure and mechanism studies, life phenomena entering science."
+              highlight: "Science began systematically studying 'structure and function', not just motion.",
+              ttsText: "Third paradigm shift, Chemistry and Life Sciences."
             },
             {
               title: "4th Paradigm: Modern Physics",
               people: "Relativity & Quantum Mechanics",
               featuresTitle: "Fundamental Impact",
               items: [
-                { 
-                  name: "Determinism Broken", 
-                  link: "https://en.wikipedia.org/wiki/Quantum_mechanics" 
-                },
-                { 
-                  name: "Observer in Theory", 
-                  link: "https://en.wikipedia.org/wiki/Observer_(physics)" 
-                },
-                { 
-                  name: "Intuition Separated from Math", 
-                  link: "https://en.wikipedia.org/wiki/Modern_physics" 
-                }
+                { name: "Determinism Broken", link: "https://en.wikipedia.org/wiki/Quantum_mechanics" },
+                { name: "Observer in Theory", link: "https://en.wikipedia.org/wiki/Observer_effect" },
+                { name: "Intuition Separated from Math", link: "https://en.wikipedia.org/wiki/Modern_physics" }
               ],
-              highlight: "Humanity first admitted: " + "nature does not obey common sense" + ".",
-              ttsText: "Fourth paradigm shift, Modern Physics. Key contributions from Relativity and Quantum Mechanics. Fundamental impacts include broken determinism, observer in theory, intuition separated from mathematics."
+              highlight: "Humanity first admitted: nature does not obey common sense.",
+              ttsText: "Fourth paradigm shift, Modern Physics."
             },
             {
               title: "5th Paradigm: Computational & Systems Science",
               time: "Late 20th Century – Present",
               featuresTitle: "Keywords",
               items: [
-                { 
-                  name: "Simulation Replaces Theory", 
-                  link: "https://en.wikipedia.org/wiki/Computer_simulation" 
-                },
-                { 
-                  name: "Non-linearity & Emergence", 
-                  link: "https://en.wikipedia.org/wiki/Complex_systems" 
-                },
-                { 
-                  name: "Interdisciplinary Systems Approach", 
-                  link: "https://en.wikipedia.org/wiki/Systems_science" 
-                }
+                { name: "Simulation Replaces Theory", link: "https://en.wikipedia.org/wiki/Computational_science" },
+                { name: "Non-linearity & Emergence", link: "https://en.wikipedia.org/wiki/Complex_systems" },
+                { name: "Interdisciplinary Systems", link: "https://en.wikipedia.org/wiki/Systems_science" }
               ],
-              highlight: "Computation became the " + "third scientific method" + " after experiment and theory.",
-              ttsText: "Fifth paradigm shift, Computational and Systems Science. Keywords include simulation replaces theory, non-linearity and emergence, interdisciplinary systems approach."
+              highlight: "Computation became the 'third scientific method' after experiment and theory.",
+              ttsText: "Fifth paradigm shift, Computational and Systems Science."
             },
             {
               title: "6th (Ongoing): AI & Data-Driven Paradigm",
               featuresTitle: "Fundamental Features",
               items: [
-                { 
-                  name: "Prediction Over Explanation", 
-                  link: "https://en.wikipedia.org/wiki/Artificial_intelligence" 
-                },
-                { 
-                  name: "Machine-Generated Models", 
-                  link: "https://en.wikipedia.org/wiki/Machine_learning" 
-                },
-                { 
-                  name: "Hypothesis No Longer Required", 
-                  link: "https://en.wikipedia.org/wiki/Data_science" 
-                }
+                { name: "Prediction Over Explanation", link: "https://en.wikipedia.org/wiki/Artificial_intelligence" },
+                { name: "Machine-Generated Models", link: "https://en.wikipedia.org/wiki/Machine_learning" },
+                { name: "Hypothesis Not Required", link: "https://en.wikipedia.org/wiki/Data-driven_science" }
               ],
-              highlight: "AI is not just a tool; it is reshaping " + "what counts as scientific knowledge" + ".",
-              ttsText: "Sixth paradigm shift, AI and Data-Driven. Fundamental features include prediction over explanation, machine-generated models, hypothesis no longer required."
+              highlight: "AI is not just a tool; it is reshaping the epistemological foundation of scientific knowledge.",
+              ttsText: "Sixth paradigm shift, AI and Data-Driven Paradigm."
             },
             {
               title: "Conclusion: We Are in a Paradigm Shift",
-              description: "By Kuhn's standards, AI represents not just a technological upgrade but a scientific revolution at the methodological and epistemological level. Whether it will fundamentally change the meanings of " + "understanding" + ", " + "explanation" + ", and " + "truth" + " will be determined by our scientific community.",
+              description: "By Kuhn's standards, AI represents not just a technological upgrade but a scientific revolution at the methodological and epistemological level. Whether it will fundamentally change the meanings of 'understanding', 'explanation', and 'truth' will be determined by our scientific community.",
               highlight: "We are experiencing a profound epistemological transformation in science.",
-              ttsText: "Conclusion: we are in a paradigm shift. By Kuhn's standards, AI represents a scientific revolution at the methodological and epistemological level."
+              ttsText: "Conclusion: we are in a paradigm shift period."
             }
           ]
         }
       }
     }
   },
+  
   computed: {
-    t() { 
-      return this.content[this.lang]; 
+    t() {
+      return this.content[this.lang];
     }
   },
+  
+  mounted() {
+    // 初始化消息
+    this.messages = [
+      {
+        role: 'ai',
+        content: this.lang === 'zh' 
+          ? '你好！我是 AI 助手，我们可以探讨托马斯·库恩的科学范式理论、科学革命的结构，以及 AI 时代如何引发新的认识论变革。请随时提问！'
+          : 'Hello! I am an AI assistant. We can discuss Thomas Kuhn\'s theory of scientific paradigms, the structure of scientific revolutions, and how the AI era is triggering new epistemological changes. Feel free to ask anything!'
+      }
+    ];
+    
+    // 初始化语音合成
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+    }
+  },
+  
   methods: {
+    toggleLanguage() {
+      this.lang = this.lang === 'zh' ? 'en' : 'zh';
+      // 更新欢迎消息
+      this.messages[0].content = this.lang === 'zh' 
+        ? '你好！我是 AI 助手，我们可以探讨托马斯·库恩的科学范式理论、科学革命的结构，以及 AI 时代如何引发新的认识论变革。请随时提问！'
+        : 'Hello! I am an AI assistant. We can discuss Thomas Kuhn\'s theory of scientific paradigms, the structure of scientific revolutions, and how the AI era is triggering new epistemological changes. Feel free to ask anything!';
+    },
+    
     toggleTTS(text, idx) {
       if (this.playingIdx === idx) {
         window.speechSynthesis.cancel();
         this.playingIdx = null;
       } else {
         window.speechSynthesis.cancel();
-        const msg = new SpeechSynthesisUtterance(text);
-        msg.lang = this.lang === 'zh' ? 'zh-CN' : 'en-US';
-        msg.onend = () => { 
-          this.playingIdx = null; 
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = this.lang === 'zh' ? 'zh-CN' : 'en-US';
+        utterance.rate = 0.9;
+        utterance.onend = () => {
+          this.playingIdx = null;
         };
-        window.speechSynthesis.speak(msg);
+        utterance.onerror = () => {
+          this.playingIdx = null;
+        };
+        window.speechSynthesis.speak(utterance);
         this.playingIdx = idx;
       }
     },
-    async sendToAI() {
-      if (!this.userInput.trim()) return;
+    
+    toggleChat() {
+      this.chatOpen = !this.chatOpen;
+      if (this.chatOpen) {
+        this.$nextTick(() => {
+          this.scrollToBottom();
+        });
+      }
+    },
+    
+    closeChat() {
+      this.chatOpen = false;
+    },
+    
+    async sendMessage() {
+      const input = this.userInput.trim();
+      if (!input || this.isThinking) return;
       
-      const prompt = this.userInput.trim();
-      this.messages.push({ role: 'user', content: prompt });
+      // 添加用户消息
+      this.messages.push({ role: 'user', content: input });
       this.userInput = '';
       this.isThinking = true;
       this.scrollToBottom();
-
+      
       try {
-        const res = await fetch('/api/chat', {
+        // 调用后端API
+        const response = await fetch('/api/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ 
-            prompt: prompt,
-            lang: this.lang 
+          body: JSON.stringify({
+            prompt: input,
+            lang: this.lang,
+            context: '科学范式转变、托马斯·库恩、AI时代认识论'
           })
         });
         
-        if (!res.ok) {
-          throw new Error('API请求失败: ' + res.status);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
         }
         
-        const data = await res.json();
+        const data = await response.json();
         this.messages.push({ role: 'ai', content: data.reply });
         
       } catch (error) {
         console.error('AI请求失败:', error);
-        const errorMessage = this.lang === 'zh' 
-          ? '抱歉，AI助手暂时无法连接。请检查网络连接或稍后重试。' 
-          : 'Sorry, the AI assistant is currently unavailable. Please check your connection or try again later.';
-        this.messages.push({ role: 'ai', content: errorMessage });
+        const fallbackReply = this.lang === 'zh' 
+          ? '抱歉，暂时无法连接到AI服务。您仍然可以浏览页面内容，了解科学范式转变的相关知识。'
+          : 'Sorry, unable to connect to AI service at the moment. You can still browse the content to learn about scientific paradigm shifts.';
+        this.messages.push({ role: 'ai', content: fallbackReply });
         
       } finally {
         this.isThinking = false;
         this.scrollToBottom();
       }
     },
+    
     scrollToBottom() {
       this.$nextTick(() => {
-        const el = this.$refs.chatScroll;
-        if (el) {
-          el.scrollTop = el.scrollHeight;
+        const container = this.$refs.chatScroll;
+        if (container) {
+          container.scrollTop = container.scrollHeight;
         }
       });
-    }
-  },
-  mounted() {
-    // 初始化语音合成
-    if ('speechSynthesis' in window) {
-      // 预加载语音
-      const voices = window.speechSynthesis.getVoices();
     }
   }
 }).mount('#app');
