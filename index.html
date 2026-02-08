@@ -156,6 +156,7 @@
     .msg.ai { 
       background: #e9e9eb; 
       color: #222; 
+      position: relative;
     }
     .ai-footer { 
       padding: 10px; 
@@ -201,6 +202,52 @@
     .dot-loader span:nth-child(3) { 
       animation-delay: 0.4s; 
     }
+    
+    /* 消息TTS样式 */
+    .message-content {
+      position: relative;
+      padding-right: 24px;
+      word-break: break-word;
+    }
+    
+    .message-tts {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      font-size: 0.8rem;
+      color: #666;
+      cursor: pointer;
+      opacity: 0.6;
+      transition: all 0.2s;
+      padding: 2px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.7);
+    }
+    
+    .message-tts:hover {
+      opacity: 1;
+      color: #2a5298;
+      background-color: rgba(42, 82, 152, 0.1);
+    }
+    
+    .message-tts.playing {
+      color: #ff4757;
+      opacity: 1;
+      animation: pulse 1.5s infinite;
+      background-color: rgba(255, 71, 87, 0.1);
+    }
+    
+    /* 用户消息不需要TTS按钮 */
+    .msg.user .message-tts {
+      display: none;
+    }
+    
+    /* 思考状态不显示TTS按钮 */
+    .msg.ai .dot-loader + .message-tts {
+      display: none;
+    }
+    
+    /* 动画定义 */
     @keyframes bounce { 
       0%, 80%, 100% { transform: scale(0); } 
       40% { transform: scale(1); } 
@@ -210,7 +257,7 @@
       50% { opacity: 0.4; } 
       100% { opacity: 1; } 
     }
-
+    
     /* 响应式设计 */
     @media (max-width: 768px) {
       main {
@@ -228,6 +275,12 @@
       #ai-btn {
         right: 20px;
         bottom: 20px;
+      }
+      .message-tts {
+        top: 2px;
+        right: 2px;
+        font-size: 0.7rem;
+        padding: 1px;
       }
     }
     
@@ -251,6 +304,35 @@
     .ai-body::-webkit-scrollbar-thumb {
       background: #c1c1c1;
       border-radius: 3px;
+    }
+    
+    /* 通知样式 */
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      background: #2a5298;
+      color: white;
+      border-radius: 8px;
+      z-index: 2000;
+      max-width: 300px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      animation: slideIn 0.3s ease;
+    }
+    
+    .notification.error {
+      background: #ff4757;
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes slideOut {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(100%); opacity: 0; }
     }
   </style>
 </head>
@@ -313,14 +395,25 @@
     <div class="ai-body" ref="chatScroll">
       <div v-for="(message, msgIdx) in messages" :key="msgIdx" 
            :class="['msg', message.role]">
-        {{ message.content }}
+        <div class="message-content">
+          {{ message.content }}
+          <!-- 只在AI回复且内容非空时显示TTS按钮 -->
+          <i v-if="message.role === 'ai' && message.content && message.content.trim().length > 0" 
+             class="fas fa-volume-up message-tts"
+             :class="{playing: ttsPlayingIndex === msgIdx}"
+             @click="speakMessage(message.content, msgIdx)"
+             :title="lang === 'zh' ? '朗读此消息' : 'Read this message aloud'"></i>
+        </div>
       </div>
+      
+      <!-- 思考状态 -->
       <div v-if="isThinking" class="msg ai">
         <div class="dot-loader">
           <span></span><span></span><span></span>
         </div>
       </div>
     </div>
+    
     <div class="ai-footer">
       <input v-model="userInput" 
              @keyup.enter="sendMessage" 
@@ -347,11 +440,13 @@ createApp({
   data() {
     return {
       lang: 'zh',
-      playingIdx: null,
+      playingIdx: null,      // 章节朗读索引
+      ttsPlayingIndex: null, // AI消息朗读索引
       chatOpen: false,
       userInput: '',
       isThinking: false,
       messages: [],
+      currentSpeech: null,   // 当前语音对象
       content: {
         zh: {
           headerTitle: "科学范式转变：从自然哲学到 AI 时代",
@@ -558,42 +653,300 @@ createApp({
       }
     ];
     
-    // 初始化语音合成
+    // 预加载语音
+    this.loadVoices();
+    
+    // 监听语音变化
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        this.loadVoices();
+      };
     }
   },
   
   methods: {
-    toggleLanguage() {
-      this.lang = this.lang === 'zh' ? 'en' : 'zh';
-      // 更新欢迎消息
-      this.messages[0].content = this.lang === 'zh' 
-        ? '你好！我是 AI 助手，我们可以探讨托马斯·库恩的科学范式理论、科学革命的结构，以及 AI 时代如何引发新的认识论变革。请随时提问！'
-        : 'Hello! I am an AI assistant. We can discuss Thomas Kuhn\'s theory of scientific paradigms, the structure of scientific revolutions, and how the AI era is triggering new epistemological changes. Feel free to ask anything!';
-    },
-    
-    toggleTTS(text, idx) {
-      if (this.playingIdx === idx) {
-        window.speechSynthesis.cancel();
-        this.playingIdx = null;
-      } else {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = this.lang === 'zh' ? 'zh-CN' : 'en-US';
-        utterance.rate = 0.9;
-        utterance.onend = () => {
-          this.playingIdx = null;
-        };
-        utterance.onerror = () => {
-          this.playingIdx = null;
-        };
-        window.speechSynthesis.speak(utterance);
-        this.playingIdx = idx;
+    // 加载语音
+    loadVoices() {
+      if ('speechSynthesis' in window) {
+        const voices = window.speechSynthesis.getVoices();
+        console.log('Available voices:', voices.length);
       }
     },
     
+    // 核心功能：清理文本，移除标点符号和表情符号
+    cleanTextForSpeech(text) {
+      if (!text || typeof text !== 'string') return '';
+      
+      // 1. 移除所有表情符号和特殊符号
+      // Unicode范围：表情符号、杂项符号、装饰符号等
+      let cleaned = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, ' ') // 表情符号
+                       .replace(/[\u{1F600}-\u{1F64F}]/gu, ' ') // 表情符号
+                       .replace(/[\u{2700}-\u{27BF}]/gu, ' ')   // 装饰符号
+                       .replace(/[\u{1F680}-\u{1F6FF}]/gu, ' ') // 交通和地图符号
+                       .replace(/[\u{2600}-\u{26FF}]/gu, ' ')   // 杂项符号
+                       .replace(/[\u{1F100}-\u{1F1FF}]/gu, ' '); // 封闭式字母数字
+      
+      // 2. 移除所有标点符号（保留空格）
+      // 中文标点：，。！？；："「」『』【】《》（）〔〕［］｛｝
+      // 英文标点：,.!?;:"'`~@#$%^&*()-_=+[]\{\}|\\<>/
+      cleaned = cleaned.replace(/[，。！？；："「」『』【】《》（）〔〕［］｛｝,.!?;:"'`~@#$%^&*()\-_=\+\[\]\{\}\|\\<>\/]/g, ' ');
+      
+      // 3. 移除多余的星号、下划线等
+      cleaned = cleaned.replace(/[*_\-]/g, ' ');
+      
+      // 4. 移除HTML标签（如果有）
+      cleaned = cleaned.replace(/<[^>]*>/g, ' ');
+      
+      // 5. 移除数字编号如 "1."、"2)" 等
+      cleaned = cleaned.replace(/\d+[\.\)]、/g, ' ');
+      
+      // 6. 标准化空白字符（多个空格变为一个空格）
+      cleaned = cleaned.replace(/\s+/g, ' ').trim();
+      
+      // 7. 移除括号及其内容（可选，根据需求）
+      cleaned = cleaned.replace(/\([^)]*\)/g, ' ')
+                      .replace(/\[[^\]]*\]/g, ' ')
+                      .replace(/\{[^}]*\}/g, ' ');
+      
+      // 8. 再次标准化空白字符
+      cleaned = cleaned.replace(/\s+/g, ' ').trim();
+      
+      console.log('Text cleaned for speech:', {
+        original: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+        cleaned: cleaned.substring(0, 100) + (cleaned.length > 100 ? '...' : ''),
+        lengthReduction: text.length - cleaned.length
+      });
+      
+      return cleaned;
+    },
+    
+    // 检测文本语言
+    detectLanguage(text) {
+      if (!text) return this.lang === 'zh';
+      
+      // 如果设置了语言，优先使用设置的语言
+      if (this.lang) {
+        return this.lang === 'zh';
+      }
+      
+      // 否则基于文本内容检测
+      const chineseCharRegex = /[\u4e00-\u9fff]/;
+      const englishWordRegex = /\b(the|and|for|this|that|with|from|science|paradigm|kuhn|ai)\b/i;
+      
+      const hasChinese = chineseCharRegex.test(text);
+      const hasEnglish = englishWordRegex.test(text);
+      
+      // 如果有中文，优先使用中文
+      if (hasChinese) return true;
+      // 如果有英文关键词，使用英文
+      if (hasEnglish) return false;
+      // 默认使用当前界面语言
+      return this.lang === 'zh';
+    },
+    
+    // 朗读AI消息
+    speakMessage(text, messageIndex) {
+      // 如果正在朗读同一消息，则停止
+      if (this.ttsPlayingIndex === messageIndex && this.currentSpeech) {
+        window.speechSynthesis.cancel();
+        this.ttsPlayingIndex = null;
+        this.currentSpeech = null;
+        return;
+      }
+      
+      // 停止任何正在进行的朗读
+      this.stopAllSpeech();
+      
+      // 清理文本（移除标点和表情）
+      const cleanedText = this.cleanTextForSpeech(text);
+      
+      if (!cleanedText || cleanedText.length < 3) {
+        this.showNotification(
+          this.lang === 'zh' ? '文本内容过少，无法朗读' : 'Text too short to read',
+          'error'
+        );
+        return;
+      }
+      
+      // 检测消息语言
+      const isChinese = this.detectLanguage(cleanedText);
+      const langCode = isChinese ? 'zh-CN' : 'en-US';
+      
+      console.log('Speaking message:', {
+        originalLength: text.length,
+        cleanedLength: cleanedText.length,
+        langCode: langCode,
+        messageIndex: messageIndex
+      });
+      
+      // 创建语音实例
+      const utterance = new SpeechSynthesisUtterance(cleanedText);
+      utterance.lang = langCode;
+      utterance.rate = 0.9;  // 语速稍慢，便于理解
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      
+      // 选择语音
+      this.selectVoice(utterance, langCode);
+      
+      // 设置事件处理
+      utterance.onstart = () => {
+        this.ttsPlayingIndex = messageIndex;
+        console.log('TTS started for message:', messageIndex);
+      };
+      
+      utterance.onend = () => {
+        this.ttsPlayingIndex = null;
+        this.currentSpeech = null;
+        console.log('TTS ended for message:', messageIndex);
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('TTS error:', event);
+        this.ttsPlayingIndex = null;
+        this.currentSpeech = null;
+        
+        this.showNotification(
+          this.lang === 'zh' 
+            ? '语音朗读功能遇到问题。请检查浏览器设置或尝试使用其他浏览器。'
+            : 'Text-to-speech encountered an issue. Please check browser settings or try another browser.',
+          'error'
+        );
+      };
+      
+      // 保存当前语音对象并开始朗读
+      this.currentSpeech = utterance;
+      window.speechSynthesis.speak(utterance);
+    },
+    
+    // 停止所有语音
+    stopAllSpeech() {
+      if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
+      this.playingIdx = null;
+      this.ttsPlayingIndex = null;
+      this.currentSpeech = null;
+    },
+    
+    // 选择语音
+    selectVoice(utterance, langCode) {
+      if (!('speechSynthesis' in window)) {
+        console.warn('Speech synthesis not supported');
+        return;
+      }
+      
+      const voices = window.speechSynthesis.getVoices();
+      
+      if (voices.length === 0) {
+        console.warn('No voices available');
+        return;
+      }
+      
+      // 优先选择匹配语言的语音
+      const langPrefix = langCode.substring(0, 2);
+      const langVoices = voices.filter(voice => 
+        voice.lang.startsWith(langPrefix)
+      );
+      
+      if (langVoices.length > 0) {
+        // 如果有多种语音，选择听起来自然的
+        const preferredVoices = langVoices.filter(voice => {
+          const name = voice.name.toLowerCase();
+          return name.includes('natural') || 
+                 name.includes('female') || 
+                 name.includes('google') ||
+                 name.includes('microsoft') ||
+                 name.includes('zira') || 
+                 name.includes('samantha') ||
+                 name.includes('tingting');
+        });
+        
+        if (preferredVoices.length > 0) {
+          utterance.voice = preferredVoices[0];
+        } else {
+          utterance.voice = langVoices[0];
+        }
+      } else {
+        // 如果没有匹配语言的语音，使用默认语音
+        console.warn(`No voice found for language ${langCode}, using default`);
+        utterance.voice = voices[0];
+      }
+      
+      console.log('Selected voice:', utterance.voice ? utterance.voice.name : 'default');
+    },
+    
+    // 更新现有的章节TTS方法
+    toggleTTS(text, idx) {
+      // 清理章节文本
+      const cleanedText = this.cleanTextForSpeech(text);
+      
+      if (this.playingIdx === idx && this.currentSpeech) {
+        this.stopAllSpeech();
+      } else {
+        this.stopAllSpeech(); // 先停止其他语音
+        
+        const langCode = this.lang === 'zh' ? 'zh-CN' : 'en-US';
+        const utterance = new SpeechSynthesisUtterance(cleanedText);
+        utterance.lang = langCode;
+        utterance.rate = 0.9;
+        utterance.volume = 1.0;
+        
+        this.selectVoice(utterance, langCode);
+        
+        utterance.onend = () => {
+          this.playingIdx = null;
+          this.currentSpeech = null;
+        };
+        
+        utterance.onerror = () => {
+          this.playingIdx = null;
+          this.currentSpeech = null;
+        };
+        
+        this.currentSpeech = utterance;
+        this.playingIdx = idx;
+        window.speechSynthesis.speak(utterance);
+      }
+    },
+    
+    // 显示通知
+    showNotification(message, type = 'info') {
+      // 移除现有通知
+      const existing = document.querySelector('.notification');
+      if (existing) {
+        existing.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+          if (existing.parentNode) {
+            existing.parentNode.removeChild(existing);
+          }
+        }, 300);
+      }
+      
+      // 创建新通知元素
+      const notification = document.createElement('div');
+      notification.className = `notification ${type === 'error' ? 'error' : ''}`;
+      notification.textContent = message;
+      
+      // 添加到页面
+      document.body.appendChild(notification);
+      
+      // 3秒后移除
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.style.animation = 'slideOut 0.3s ease';
+          setTimeout(() => {
+            if (notification.parentNode) {
+              notification.parentNode.removeChild(notification);
+            }
+          }, 300);
+        }
+      }, 3000);
+    },
+    
+    // 切换聊天面板时停止语音
     toggleChat() {
+      this.stopAllSpeech();
       this.chatOpen = !this.chatOpen;
       if (this.chatOpen) {
         this.$nextTick(() => {
@@ -603,10 +956,14 @@ createApp({
     },
     
     closeChat() {
+      this.stopAllSpeech();
       this.chatOpen = false;
     },
     
+    // 发送消息时停止语音
     async sendMessage() {
+      this.stopAllSpeech(); // 发送新消息前停止语音
+      
       const input = this.userInput.trim();
       if (!input || this.isThinking) return;
       
@@ -657,7 +1014,22 @@ createApp({
           container.scrollTop = container.scrollHeight;
         }
       });
+    },
+    
+    // 切换语言时停止语音
+    toggleLanguage() {
+      this.stopAllSpeech();
+      this.lang = this.lang === 'zh' ? 'en' : 'zh';
+      // 更新欢迎消息
+      this.messages[0].content = this.lang === 'zh' 
+        ? '你好！我是 AI 助手，我们可以探讨托马斯·库恩的科学范式理论、科学革命的结构，以及 AI 时代如何引发新的认识论变革。请随时提问！'
+        : 'Hello! I am an AI assistant. We can discuss Thomas Kuhn\'s theory of scientific paradigms, the structure of scientific revolutions, and how the AI era is triggering new epistemological changes. Feel free to ask anything!';
     }
+  },
+  
+  // 在组件销毁时停止语音
+  beforeUnmount() {
+    this.stopAllSpeech();
   }
 }).mount('#app');
 </script>
