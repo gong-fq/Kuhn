@@ -72,6 +72,16 @@
       border-radius: 6px; 
     }
     
+    /* 密码验证界面 */
+    .ai-password-gate {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.5rem;
+      flex: 1;
+    }
+
     /* 链接与图标 */
     .info-link { 
       font-size: 0.75rem; 
@@ -392,6 +402,31 @@
       <span>{{ lang === 'zh' ? 'DeepSeek AI 助手' : 'DeepSeek AI Assistant' }}</span>
       <i class="fas fa-times" @click="closeChat" style="cursor:pointer"></i>
     </div>
+
+    <!-- 密码验证界面 -->
+    <div v-if="!chatUnlocked" class="ai-password-gate">
+      <i class="fas fa-lock" style="font-size:2rem;color:#2a5298;margin-bottom:0.8rem;"></i>
+      <p style="margin:0 0 1rem;font-size:0.95rem;color:#444;text-align:center;">
+        {{ lang === 'zh' ? '请输入访问密码以使用 AI 助手' : 'Enter the access password to use AI Assistant' }}
+      </p>
+      <input
+        type="password"
+        v-model="passwordInput"
+        @keyup.enter="verifyPassword"
+        :placeholder="lang === 'zh' ? '请输入密码...' : 'Enter password...'"
+        style="width:100%;box-sizing:border-box;padding:0.6rem 0.8rem;border:1px solid #ccc;border-radius:8px;font-size:0.95rem;margin-bottom:0.5rem;"
+      />
+      <p v-if="passwordError" style="color:#e74c3c;font-size:0.85rem;margin:0 0 0.5rem;">
+        {{ lang === 'zh' ? '密码错误，请重试。' : 'Incorrect password, please try again.' }}
+      </p>
+      <button @click="verifyPassword"
+        style="width:100%;padding:0.6rem;background:#2a5298;color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.95rem;">
+        {{ lang === 'zh' ? '确认' : 'Confirm' }}
+      </button>
+    </div>
+
+    <!-- 聊天主体（解锁后显示） -->
+    <template v-else>
     <div class="ai-body" ref="chatScroll">
       <div v-for="(message, msgIdx) in messages" :key="msgIdx" 
            :class="['msg', message.role]">
@@ -425,6 +460,7 @@
         <span v-else>Send</span>
       </button>
     </div>
+    </template>
   </div>
   
   <!-- AI 按钮 -->
@@ -443,6 +479,9 @@ createApp({
       playingIdx: null,      // 章节朗读索引
       ttsPlayingIndex: null, // AI消息朗读索引
       chatOpen: false,
+      chatUnlocked: false,
+      passwordInput: '',
+      passwordError: false,
       userInput: '',
       isThinking: false,
       messages: [],
@@ -944,6 +983,24 @@ createApp({
       }, 3000);
     },
     
+    // 验证密码（SHA-256 哈希比对）
+    async verifyPassword() {
+      const CORRECT_HASH = '747a572d964bec68753547703d483443bce348c2b49561642a3cea67ab85a8d6';
+      const encoder = new TextEncoder();
+      const data = encoder.encode(this.passwordInput);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      if (hashHex === CORRECT_HASH) {
+        this.chatUnlocked = true;
+        this.passwordError = false;
+        this.$nextTick(() => this.scrollToBottom());
+      } else {
+        this.passwordError = true;
+        this.passwordInput = '';
+      }
+    },
+
     // 切换聊天面板时停止语音
     toggleChat() {
       this.stopAllSpeech();
@@ -983,7 +1040,8 @@ createApp({
           body: JSON.stringify({
             prompt: input,
             lang: this.lang,
-            context: '科学范式转变、托马斯·库恩、AI时代认识论'
+            context: '科学范式转变、托马斯·库恩、AI时代认识论',
+            accessToken: 'kuhn2026'
           })
         });
         
