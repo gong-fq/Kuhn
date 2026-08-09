@@ -400,6 +400,9 @@
   <div id="ai-panel" :class="{active: chatOpen}">
     <div class="ai-header">
       <span>{{ lang === 'zh' ? 'DeepSeek AI 助手' : 'DeepSeek AI Assistant' }}</span>
+      <i v-if="chatUnlocked" class="fas fa-trash-alt" @click="clearHistory"
+         style="cursor:pointer;margin-right:0.8rem;"
+         :title="lang === 'zh' ? '清除聊天记录' : 'Clear chat history'"></i>
       <i class="fas fa-times" @click="closeChat" style="cursor:pointer"></i>
     </div>
 
@@ -485,6 +488,7 @@ createApp({
       userInput: '',
       isThinking: false,
       messages: [],
+      historyKey: 'kuhn_chat_history_v1', // localStorage 存储键
       currentSpeech: null,   // 当前语音对象
       content: {
         zh: {
@@ -682,15 +686,9 @@ createApp({
   },
   
   mounted() {
-    // 初始化消息
-    this.messages = [
-      {
-        role: 'ai',
-        content: this.lang === 'zh' 
-          ? '你好！我是 AI 助手，我们可以探讨托马斯·库恩的科学范式理论、科学革命的结构，以及 AI 时代如何引发新的认识论变革。请随时提问！'
-          : 'Hello! I am an AI assistant. We can discuss Thomas Kuhn\'s theory of scientific paradigms, the structure of scientific revolutions, and how the AI era is triggering new epistemological changes. Feel free to ask anything!'
-      }
-    ];
+    // 尝试从本地存储恢复历史记录，没有则显示欢迎语
+    const saved = this.loadHistory();
+    this.messages = saved && saved.length ? saved : [this.welcomeMessage()];
     
     // 预加载语音
     this.loadVoices();
@@ -704,6 +702,43 @@ createApp({
   },
   
   methods: {
+    // 默认欢迎语
+    welcomeMessage() {
+      return {
+        role: 'ai',
+        content: this.lang === 'zh'
+          ? '你好！我是 AI 助手，我们可以探讨托马斯·库恩的科学范式理论、科学革命的结构，以及 AI 时代如何引发新的认识论变革。请随时提问！'
+          : 'Hello! I am an AI assistant. We can discuss Thomas Kuhn\'s theory of scientific paradigms, the structure of scientific revolutions, and how the AI era is triggering new epistemological changes. Feel free to ask anything!'
+      };
+    },
+
+    // 从 localStorage 读取历史记录
+    loadHistory() {
+      try {
+        const raw = localStorage.getItem(this.historyKey);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        console.warn('读取聊天历史失败:', e);
+        return null;
+      }
+    },
+
+    // 将当前消息列表写入 localStorage
+    saveHistory() {
+      try {
+        localStorage.setItem(this.historyKey, JSON.stringify(this.messages));
+      } catch (e) {
+        console.warn('保存聊天历史失败:', e);
+      }
+    },
+
+    // 清除历史记录，恢复为欢迎语
+    clearHistory() {
+      this.stopAllSpeech();
+      this.messages = [this.welcomeMessage()];
+      localStorage.removeItem(this.historyKey);
+    },
+
     // 加载语音
     loadVoices() {
       if ('speechSynthesis' in window) {
@@ -1062,6 +1097,7 @@ createApp({
       } finally {
         this.isThinking = false;
         this.scrollToBottom();
+        this.saveHistory();
       }
     },
     
@@ -1079,9 +1115,10 @@ createApp({
       this.stopAllSpeech();
       this.lang = this.lang === 'zh' ? 'en' : 'zh';
       // 更新欢迎消息
-      this.messages[0].content = this.lang === 'zh' 
-        ? '你好！我是 AI 助手，我们可以探讨托马斯·库恩的科学范式理论、科学革命的结构，以及 AI 时代如何引发新的认识论变革。请随时提问！'
-        : 'Hello! I am an AI assistant. We can discuss Thomas Kuhn\'s theory of scientific paradigms, the structure of scientific revolutions, and how the AI era is triggering new epistemological changes. Feel free to ask anything!';
+      if (this.messages.length === 1) {
+        this.messages[0] = this.welcomeMessage();
+        this.saveHistory();
+      }
     }
   },
   
